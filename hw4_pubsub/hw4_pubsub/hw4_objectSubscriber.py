@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
@@ -21,31 +22,28 @@ from geometry_msgs.msg import Twist
 from zed_interfaces.msg import ObjectsStamped
 
 
+
 class ObjectSubscriber(Node):
 
     def __init__(self):
         super().__init__('object_subscriber')
-        self.zed_subscriber = self.create_subscription(String, 'zed_subscriber', 10)
+        qos = QoSProfile(depth=10)
+        # get subscription to zed camera
+        self.zed_subscriber = self.create_subscription(ObjectsStamped, '/zed/zed_node/obj_det/objects', self.object_callback, qos)
         self.desired_distance_from_object = 0.1
         self.forward_speed = 0.1
+        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', QoSProfile(depth=10))
+        print("we good maboi")
 
-
-        # TODO: change the path as the robot is not husky
-        self.cmd_pub = self.create_publisher(Twist, '/zed/zed_node/obj_det/objects', QoSProfile(depth=10))
 
     def object_callback(self, msg):
         """Get objects from Zed2 camera and move the robot"""
+        print("ya girl")
         objects = msg.objects
-        # objectDistances = []
-        # for obj in objects:
-        #     # assume object has class and position
-        #     obj_class = obj.object_class
-        #     # assume position.x: distance to the object
-        #     obj_distance = obj.position.x
-        #     self.get_logger().info('Object class: %s, distance: %f' % (obj_class, obj_distance))
+        distances = [math.sqrt(obj.position[0] **2 + obj.position[1] **2) for obj in objects]
         # create a Twist message
         twist = Twist()
-        if any(obj.object_class.position.x < self.desired_distance_from_object for obj in objects):
+        if any(distance < self.desired_distance_from_object for distance in distances):
             twist.linear.x = 0.0
         else:
             twist.linear.x = self.forward_speed

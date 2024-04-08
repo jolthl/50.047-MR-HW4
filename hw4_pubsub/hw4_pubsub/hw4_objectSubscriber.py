@@ -34,31 +34,30 @@ class ObjectSubscriber(Node):
         self.forward_speed = 0.1
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', QoSProfile(depth=10))
         print("we good maboi")
+        self.count = 0
 
 
     def object_callback(self, msg):
         """Get objects from Zed2 camera and move the robot"""
-        print("ya girl")
-        objects = msg.objects
-        distances = [math.sqrt(obj.position[0] **2 + obj.position[1] **2) for obj in objects]
-        # create a Twist message
         twist = Twist()
-        if any(distance < self.desired_distance_from_object for distance in distances):
-            twist.linear.x = 0.0
+        objects = msg.objects
+        if objects:
+            for obj in objects:
+                # check if object is near enough, move
+                if math.sqrt(obj.position.x**2 + obj.position.y**2) < self.desired_distance_from_object:
+                    twist.linear.x = self.forward_speed
+                    print(f"move {self.count}")
+                    break
+            else:
+                print(f"halt {self.count}")
+                twist.linear.x = 0.0
         else:
+            # move anyway
+            print(f"move anyway {self.count}")
             twist.linear.x = self.forward_speed
+        # publish the message
         self.cmd_pub.publish(twist)
-       
-        # # if distance > 0.1m: move forward
-        # if obj_distance > self.desired_distance_from_object:
-        #     # set the linear velocity
-        #     twist.linear.x = self.forward_speed
-        #     # publish the message
-        #     self.cmd_pub.publish(twist)
-        # else:
-        #     # stop the robot
-        #     twist.linear.x = 0.0
-        #     self.cmd_pub.publish(twist)
+        self.count += 1
       
 
 def main(args=None):
